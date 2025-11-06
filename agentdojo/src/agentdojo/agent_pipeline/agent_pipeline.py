@@ -16,6 +16,7 @@ from agentdojo.agent_pipeline.llms.anthropic_llm import AnthropicLLM
 from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
 from agentdojo.agent_pipeline.llms.google_llm import GoogleLLM
 from agentdojo.agent_pipeline.llms.openai_llm import OpenAILLM, OpenAILLMToolFilter
+from agentdojo.agent_pipeline.llms.openai_llm import _is_reasoning_model
 from agentdojo.agent_pipeline.llms.prompting_llm import PromptingLLM
 from agentdojo.agent_pipeline.llms.secalign_local_llm import LocalLLM
 from agentdojo.agent_pipeline.pi_detector import TransformersBasedPIDetector
@@ -103,6 +104,8 @@ class PipelineConfig(BaseModel):
     system_message: str | None
     """The system message to use. If not provided, the default system message will be used. If provided, it will
     override `system_message_name`."""
+    model_extra: dict | None = None
+    """Additional configuration for advanced routing logic (e.g., specifying coding models)."""
 
     @model_validator(mode="after")
     def validate_system_message(self) -> Self:
@@ -145,13 +148,29 @@ class AgentPipeline(BasePipelineElement):
         )
         llm_name = config.llm if isinstance(config.llm, str) else llm.name
 
+        coding_llm: BasePipelineElement | None = None
+        coding_llm_name: str | None = None
+        model_extra = config.model_extra or {}
+        if isinstance(config.llm, str):
+            coding_model_name = model_extra.get("coding_model")
+            if coding_model_name is not None:
+                coding_llm = get_llm(MODEL_PROVIDERS[ModelsEnum(coding_model_name)], coding_model_name)
+                coding_llm_name = coding_model_name
+
         assert config.system_message is not None
         system_message_component = SystemMessage(config.system_message)
         init_query_component = InitQuery()
 
         if config.defense is None:
-            tools_loop = ToolsExecutionLoop([ToolsExecutor(), llm])
-            pipeline = cls([system_message_component, init_query_component, llm, tools_loop])
+            primary_llm = llm
+            if coding_llm is not None and llm_name is not None and _is_reasoning_model(llm_name):
+                tools_loop = ToolsExecutionLoop([ToolsExecutor(), coding_llm])
+                pipeline = cls([system_message_component, init_query_component, primary_llm, tools_loop])
+                pipeline.name = f"{llm_name}-with-{coding_llm_name}"
+                return pipeline
+
+            tools_loop = ToolsExecutionLoop([ToolsExecutor(), primary_llm])
+            pipeline = cls([system_message_component, init_query_component, primary_llm, tools_loop])
             pipeline.name = llm_name
             return pipeline
         if config.defense == "tool_filter":
