@@ -14,6 +14,7 @@ from agentdojo.agent_pipeline.base_pipeline_element import BasePipelineElement
 from agentdojo.agent_pipeline.basic_elements import InitQuery, SystemMessage
 from agentdojo.agent_pipeline.llms.anthropic_llm import AnthropicLLM
 from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
+from agentdojo.agent_pipeline.llms.ensemble_llm import EnsembleLLM
 from agentdojo.agent_pipeline.llms.google_llm import GoogleLLM
 from agentdojo.agent_pipeline.llms.openai_llm import OpenAILLM, OpenAILLMToolFilter
 from agentdojo.agent_pipeline.llms.prompting_llm import PromptingLLM
@@ -26,7 +27,7 @@ from agentdojo.agent_pipeline.tool_execution import (
 )
 from agentdojo.functions_runtime import EmptyEnv, Env, FunctionsRuntime
 from agentdojo.logging import Logger
-from agentdojo.models import MODEL_PROVIDERS, ModelsEnum
+from agentdojo.models import ENSEMBLE_CONFIGS, MODEL_PROVIDERS, ModelsEnum
 from agentdojo.types import ChatMessage
 
 TOOL_FILTER_PROMPT = (
@@ -53,7 +54,31 @@ def load_system_message(system_message_name: str | None) -> str:
 
 
 def get_llm(provider: str, model: str) -> BasePipelineElement:
-    if provider == "openai":
+    if provider == "ensemble":
+        # Get ensemble configuration
+        if model not in ENSEMBLE_CONFIGS:
+            raise ValueError(f"Unknown ensemble configuration: {model}")
+        
+        reasoning_model, coding_model, simple_model = ENSEMBLE_CONFIGS[model]
+        
+        # Get providers for each model
+        reasoning_provider = MODEL_PROVIDERS.get(ModelsEnum(reasoning_model), "openai")
+        coding_provider = MODEL_PROVIDERS.get(ModelsEnum(coding_model), "openai")
+        simple_provider = MODEL_PROVIDERS.get(ModelsEnum(simple_model), "openai")
+        
+        # Create individual LLMs
+        reasoning_llm = get_llm(reasoning_provider, reasoning_model)
+        coding_llm = get_llm(coding_provider, coding_model)
+        simple_llm = get_llm(simple_provider, simple_model)
+        
+        # Create ensemble
+        llm = EnsembleLLM(
+            reasoning_llm=reasoning_llm,
+            coding_llm=coding_llm,
+            simple_llm=simple_llm,
+            name=model,
+        )
+    elif provider == "openai":
         client = openai.OpenAI()
         llm = OpenAILLM(client, model)
     elif provider == "anthropic":

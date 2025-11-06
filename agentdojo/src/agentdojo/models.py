@@ -54,6 +54,10 @@ class ModelsEnum(StrEnum):
     """Gemini 2.0 Flash 001"""
     GEMINI_2_5_FLASH = "gemini-2.5-flash"
     """Gemini 2.5 Flash"""
+    ENSEMBLE_O3_GPT4_MINI = "ensemble-o3-gpt4-mini"
+    """Ensemble: o3-mini for reasoning, GPT-4o for coding, GPT-4o-mini for simple tasks"""
+    ENSEMBLE_GPT41_GPT4_MINI = "ensemble-gpt41-gpt4-mini"
+    """Ensemble: GPT-4.1 for reasoning, GPT-4o for coding, GPT-4o-mini for simple tasks"""
 
 MODEL_PROVIDERS = {
     ModelsEnum.GPT_4O_2024_05_13: "openai",
@@ -82,6 +86,8 @@ MODEL_PROVIDERS = {
     ModelsEnum.GEMINI_2_0_FLASH_EXP: "google",
     ModelsEnum.GEMINI_2_0_FLASH_001: "google",
     ModelsEnum.GEMINI_2_5_FLASH: "google",
+    ModelsEnum.ENSEMBLE_O3_GPT4_MINI: "ensemble",
+    ModelsEnum.ENSEMBLE_GPT41_GPT4_MINI: "ensemble",
 }
 
 
@@ -112,4 +118,14 @@ MODEL_NAMES = {
     "gemini-2.0-flash-exp": "AI model developed by Google",
     "gemini-2.0-flash-001": "AI model developed by Google",
     "gemini-2.5-flash": "AI model developed by Google",
+    "ensemble-o3-gpt4-mini": "Ensemble (o3-mini + GPT-4o + GPT-4o-mini)",
+    "ensemble-gpt41-gpt4-mini": "Ensemble (GPT-4.1 + GPT-4o + GPT-4o-mini)",
+}
+
+
+# Ensemble model configurations
+# Format: "ensemble-name": (reasoning_model, coding_model, simple_model)
+ENSEMBLE_CONFIGS = {
+    "ensemble-o3-gpt4-mini": ("o3-mini-2025-01-31", "gpt-4o-2024-08-06", "gpt-4o-mini-2024-07-18"),
+    "ensemble-gpt41-gpt4-mini": ("gpt-4.1-2025-04-14", "gpt-4o-2024-08-06", "gpt-4o-mini-2024-07-18"),
 }
